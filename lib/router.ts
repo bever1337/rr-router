@@ -1,5 +1,5 @@
-import { matchAll } from ".";
-import type { HandlerTuple, RouterOptions } from ".";
+import { matchAll } from "./index.js";
+import type { HandlerTuple, RouterOptions } from "./index.js";
 
 /**
  * A `Router` is a stateful container for an array of (`Request`, `Response`) tuples.
