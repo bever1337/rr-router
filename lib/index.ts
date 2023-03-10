@@ -1,36 +1,29 @@
 /**
- * ResponseHandler is invoked when the
- * RequestOrHandler portion of the
- * (Request, Response) tuple was matched.
- * Its single parameter, request, is the
- * Request object being routed.
- * ResponseHandler MUST return a Response
- * or Promise<Response>.
- */
-export type ResponseHandler = (
-  request: Request
-) => Response | Promise<Response>;
-/**
- * The RequestHandler optionally returns
- * a Request for router matching. Returning
- * undefined instructs the router to skip
- * the current (Request, Response) tuple.
- * Its single parameter, request, is the
- * currently-routed Request object.
- */
-export type RequestHandler = (request: Request) => Request | undefined;
-/**
- * RequestOrHandler optionally provides
- * Request instances for Router matching.
- */
-export type RequestOrHandler = RequestHandler | Request | undefined;
-/**
  * A possible Request match and its associated
  * Response resolver. A Router instance
  * maintains an array of HandlerTuple on its
  * handlers property.
+ *
+ * ## `RequestOrHandler`
+ * Possible values:
+ * 1. `undefined` -- wildcard, i.e. always matches
+ * 1. `Request` -- perform matching against query request
+ * 1. `(request: Request) => Request | undefined` -- request factory
+ *
+ * The factory returns a value of 2 possible types:
+ * 1. `undefined` -- requests do not match
+ * 1. `Request` -- perform matching against query request
+ *
+ * ## `ResponseHandler`
+ * ResponseHandler is invoked when the  RequestOrHandler portion
+ * of the (Request, Response) tuple was matched. Its single
+ * parameter, request, is the Request object being routed.
+ * ResponseHandler MUST return a Response or Promise<Response>.
  */
-export type HandlerTuple = [RequestOrHandler, ResponseHandler];
+export type HandlerTuple = [
+  ((request: Request) => Request | undefined) | Request | undefined,
+  (request: Request) => Response | Promise<Response>
+];
 
 /**
  * Based on CacheQueryOptions. RouterOptions also
@@ -65,24 +58,6 @@ export interface RouterOptions {
 }
 
 /**
- * Applies default CacheQueryOptions over
- * input of undefined or CacheQueryOptions.
- */
-export function getOptions({
-  excludeFragment = true,
-  ignoreSearch = false,
-  ignoreMethod = false,
-  ignoreVary = false,
-}: Partial<RouterOptions> = {}): RouterOptions {
-  return {
-    excludeFragment,
-    ignoreMethod,
-    ignoreSearch,
-    ignoreVary,
-  };
-}
-
-/**
  * @documentation https://www.w3.org/TR/service-workers/#dom-cache-matchall
  * Matches requestQuery against Request handlers and returns an array of Responses or pending Responses.
  * If the Request portion of the Handler tuple:
@@ -91,11 +66,10 @@ export function getOptions({
  *   - is a Request, then perform Request matching and conditionally return the Response portion of the tuple
  */
 export function matchAll(
-  handlers: [RequestOrHandler, ResponseHandler][],
+  handlers: HandlerTuple[],
   requestQuery: string | Request,
   options?: Partial<RouterOptions>
 ) {
-  const o = getOptions(options);
   /** Internal usage of requestQuery */
   let r: Request;
   if (requestQuery instanceof Request) {
@@ -111,7 +85,7 @@ export function matchAll(
     if (
       typeof requestOrHandler === "undefined" ||
       ((handledRequest = unwrapRequest(requestOrHandler, r)) &&
-        requestsMatch(r, handledRequest, null, o))
+        requestsMatch(r, handledRequest, null, options))
     ) {
       // `requestOrHandler` was not provided then `responseOrHandler` is wildcard
       // OR, let `handledRequest` be the Request of requestOrHandler or returned Request of requestOrHandler AND `handledRequest` was provided and requests match
@@ -128,9 +102,9 @@ export function requestsMatch(
   requestQuery: Request,
   request: Request,
   response: Response | null = null,
-  o?: Partial<RouterOptions>
+  options?: Partial<RouterOptions>
 ) {
-  if ((o?.ignoreMethod ?? false) === false && request.method !== "GET") {
+  if ((options?.ignoreMethod ?? false) === false && request.method !== "GET") {
     // 1. If options["ignoreMethod"] is false and request’s method is not `GET`, return false.
     return false;
   }
@@ -138,14 +112,14 @@ export function requestsMatch(
   const queryURL = new URL(requestQuery.url);
   // 3. Let cachedURL be request's url.
   const cachedURL = new URL(request.url);
-  if ((o?.ignoreSearch ?? false) === true) {
+  if ((options?.ignoreSearch ?? false) === true) {
     // 4. If options["ignoreSearch"] is true, then
     // 4. 1. Set cachedURL's query to the empty string
     cachedURL.search = "";
     // 4. 2. Set queryURL's query to the empty string
     queryURL.search = "";
   }
-  if ((o?.excludeFragment ?? true) === true) {
+  if ((options?.excludeFragment ?? true) === true) {
     // Pre-5. With the exclude fragment flag set...
     cachedURL.hash = "";
     queryURL.hash = "";
@@ -154,38 +128,48 @@ export function requestsMatch(
     // 5. If queryURL does not equal cachedURL, then return false.
     return false;
   }
+  // 6. If
   if (
     // response is null,
     response === null ||
     // options["ignoreVary"] is true,
-    (o?.ignoreVary ?? false) === true ||
-    // or response's header list does not contain `Vary`
+    (options?.ignoreVary ?? false) === true ||
+    // or response's header list does not contain `Vary`,
     (response?.headers.has("Vary") ?? false) === false
   ) {
-    // 6. Return true
+    // Return true
     return true;
   }
   // 7. Let fieldValues be the list containing the elements corresponding to the field-values of the Vary header for the value of the header with name `Vary`.
   const fieldValues = response?.headers.get("Vary")?.split(", ") ?? [];
-  const varyFieldValuesMatch = fieldValues.every((fieldValue) => {
+  for (let i = 0; i < fieldValues.length; i++) {
     // 8. For each fieldValue in fieldValues:
+    const fieldValue = fieldValues[i];
+    if (fieldValue === undefined) {
+      // Sanity check: It's impossible to go out of bounds, but...
+      return false;
+    }
     // 8. 1. If fieldValue matches "*", then return false.
-    if (fieldValue !== "*") {
-      return true;
+    if (fieldValue === "*") {
+      return false;
     }
     // or the combined value given fieldValue and request’s header list
     // does not match the combined value given fieldValue and
     // requestQuery’s header list, then return false
-    return (
-      requestQuery.headers.get(fieldValue) === request.headers.get(fieldValue)
-    );
-  });
+    // note: 'combined value' represents adding a header to a set of headers
+    // shortcut: `Headers` handles everything
+    if (
+      requestQuery.headers.get(fieldValue) !== request.headers.get(fieldValue)
+    ) {
+      return false;
+    }
+  }
   // 9. Return true.
-  return varyFieldValuesMatch;
+  return true;
 }
 
 export function unwrapRequest(
-  requestOrHandler: RequestOrHandler,
+  requestOrHandler: HandlerTuple[0],
   requestQuery: Request
 ) {
   if (

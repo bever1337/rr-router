@@ -1,10 +1,5 @@
 import { matchAll } from ".";
-import type {
-  HandlerTuple,
-  ResponseHandler,
-  RequestOrHandler,
-  RouterOptions,
-} from ".";
+import type { HandlerTuple, RouterOptions } from ".";
 
 /**
  * A `Router` is a stateful container for an array of (`Request`, `Response`) tuples.
@@ -91,7 +86,7 @@ export class Router {
    * );
    * ```
    */
-  handle(request: RequestOrHandler, response: ResponseHandler) {
+  handle(request: HandlerTuple[0], response: HandlerTuple[1]) {
     this.handlers.push([request, response]);
   }
 
