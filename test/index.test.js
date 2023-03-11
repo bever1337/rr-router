@@ -11,7 +11,7 @@ import { requestsMatch } from "../dist/index.js";
 config();
 const pathGeckoDriver = process.env.PATH_GECKODRIVER;
 
-describe("rr-router", () => {
+describe("requestsMatch", () => {
   let driver, server;
   before(() =>
     httpsServerFactory().then((newServer) => {

@@ -13,10 +13,15 @@ npx tsc # Build and emit lib to `dist/`
 ### Testing
 
 ```bash
-# Prerequisite: Install webdrivers to the `./webdrivers` directory
-# Prerequisite: Build with `npx tsc`
+# Prerequisite: Install webdrivers to the dev machine
+touch .env
+echo 'PATH_GECKODRIVER="./relative-path/from-root/to-gecko-driver"' > .env
+
 # create HTTPS certificates for testing with Caches API
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout cert.key -out cert.pem -sha256
+
+# Build with `npx tsc`, see above
+npx tsc
 
 # Test runner
 node --test
