@@ -1,0 +1,26 @@
+[
+  {
+    "name": "control-test--hit",
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com"],
+    "response": null,
+    "options": {},
+    "expect": [true, true]
+  },
+  {
+    "name": "control-test--miss",
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com/answer"],
+    "response": null,
+    "options": {},
+    "expect": [false, false]
+  },
+  {
+    "name": "protocol-test--miss",
+    "requestQuery": ["https://example.com"],
+    "request": ["http://example.com"],
+    "response": null,
+    "options": {},
+    "expect": [false, false]
+  }
+]
