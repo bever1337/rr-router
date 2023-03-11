@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { config } from "dotenv";
-import { after, before, describe, it } from "node:test";
+import { after, before, describe, it, test } from "node:test";
 import path from "path";
 import { Browser, Builder } from "selenium-webdriver";
 import gecko from "selenium-webdriver/firefox.js";
@@ -11,7 +11,7 @@ import { requestsMatch } from "../dist/index.js";
 config();
 const pathGeckoDriver = process.env.PATH_GECKODRIVER;
 
-describe("tests", () => {
+describe("rr-router", () => {
   let driver, server;
   before(() =>
     httpsServerFactory().then((newServer) => {
@@ -36,69 +36,95 @@ describe("tests", () => {
   });
   after(() => driver.close());
 
-  it("Successful control test", () =>
-    driver
-      .executeAsyncScript(function controlTest() {
-        const finished = arguments[arguments.length - 1];
-        const CACHE_NAME = "success-control-test-cache";
-        const cachedAnswer = new Response("42");
-        const cachedQuery = new Request("https://example.com/answer", {
-          method: "GET",
-        });
-        const requestQuery = new Request("https://example.com/answer", {
-          method: "GET",
-        });
-        caches
-          .open(CACHE_NAME)
-          .then((cache) =>
-            cache
-              .put(cachedQuery, cachedAnswer)
-              .then(() => cache.match(requestQuery))
-              .then((match) => {
-                finished(!!match);
-              })
-          )
-          .catch(() => {
-            finished();
-          });
+  function testScript() {
+    const [
+      CACHE_NAME,
+      [requestQueryURL, requestQueryInit],
+      [requestURL, requestInit],
+      _response,
+      cacheOptions,
+      finished,
+    ] = arguments;
+    const requestQuery = new Request(requestQueryURL, requestQueryInit);
+    const request = new Request(requestURL, requestInit);
+    const response = new Response("42");
+    let testResult = null;
+    caches
+      .open(CACHE_NAME)
+      .then((cache) =>
+        cache
+          .put(request, response)
+          .then(() => cache.match(requestQuery, cacheOptions))
+      )
+      .then((cachedResponse) => {
+        testResult = !!cachedResponse;
       })
-      .then((scriptResult) => {
-        assert.equal(typeof scriptResult, "boolean", "Bad results");
-        assert.equal(scriptResult, true, "Control test expects cache hit");
-      }));
+      .catch(() => {})
+      .finally(() => {
+        finished(testResult);
+      });
+  }
 
-  it("Failure control test", () =>
-    driver
-      .executeAsyncScript(function controlTest() {
-        const finished = arguments[arguments.length - 1];
-        const CACHE_NAME = "failure-control-test-cache";
-        const cachedAnswer = new Response("42");
-        const cachedQuery = new Request("https://example.com/answer", {
-          method: "GET",
-        });
-        const requestQuery = new Request("https://example.com/flowerpot", {
-          method: "GET",
-        });
-        caches
-          .open(CACHE_NAME)
-          .then((cache) =>
-            cache
-              .put(cachedQuery, cachedAnswer)
-              .then(() => cache.match(requestQuery))
-              .then((match) => {
-                finished(!!match);
-              })
-          )
-          .catch(() => {
-            finished();
-          });
-      })
-      .then((scriptResult) => {
-        assert.equal(typeof scriptResult, "boolean", "Bad results");
-        assert.equal(
-          scriptResult,
-          false,
-          "Failure control test expects cache miss"
-        );
-      }));
+  function testLib(
+    name,
+    [requestQueryURL, requestQueryInit],
+    [requestURL, requestInit],
+    _response,
+    options
+  ) {
+    const requestQuery = new Request(requestQueryURL, requestQueryInit);
+    const request = new Request(requestURL, requestInit);
+    const testResult = requestsMatch(requestQuery, request, null, options);
+    return testResult;
+  }
+
+  /**
+   * @param {string} name
+   * @param {[string, RequestInit]} requestQuery
+   * @param {[string, RequestInit]} request
+   * @param {null} response
+   * @param {Object} options
+   */
+  const testCases = (name, requestQuery, request, response, options) =>
+    Promise.all([
+      driver.executeAsyncScript(
+        testScript,
+        name,
+        requestQuery,
+        request,
+        response,
+        options
+      ),
+      Promise.resolve(testLib(name, requestQuery, request, response, options)),
+    ]);
+
+  it("Cache hit control test", () => {
+    return testCases(
+      "control-test--hit",
+      ["https://example.com/answer", { method: "GET" }],
+      ["https://example.com/answer", { method: "GET" }],
+      null,
+      {}
+    ).then(([controlResult, testResult]) => {
+      assert.equal(typeof controlResult, "boolean", "Control test failed");
+      assert.equal(typeof testResult, "boolean", "Test failed");
+      assert.equal(controlResult, true, "Control test expects cache hit");
+      assert.equal(testResult, true, "Test expects cache hit");
+    });
+  });
+
+  it("Cache miss control test", () => {
+    return testCases(
+      "control-test--miss",
+      ["https://example.com/answer", { method: "GET" }],
+      ["https://example.com/flowerpot", { method: "GET" }],
+      null,
+      {}
+    ).then(([controlResult, testResult]) => {
+      assert.equal(typeof controlResult, "boolean", "Control test failed");
+      assert.equal(typeof testResult, "boolean", "Test failed");
+      assert.equal(controlResult, false, "Control test expects cache miss");
+      assert.equal(testResult, false, "Test expects cache miss");
+    });
+  });
 });
