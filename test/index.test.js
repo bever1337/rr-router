@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { after, before, describe, it, test } from "node:test";
+import { after, before, describe, it } from "node:test";
 import path from "path";
 import { Browser, Builder } from "selenium-webdriver";
 import gecko from "selenium-webdriver/firefox.js";
