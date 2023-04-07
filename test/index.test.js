@@ -7,7 +7,7 @@ import { Browser, Builder } from "selenium-webdriver";
 import gecko from "selenium-webdriver/firefox.js";
 
 import controlData from "./control-cases.json" assert { type: "json" };
-import successData from "./generated-success-cases.json" assert { type: "json" };
+import { generateSuccessCases } from "./generate-success-cases.js";
 import { httpsServerFactory } from "./server.js";
 
 import { requestsMatch } from "../dist/index.js";
@@ -103,7 +103,7 @@ describe("requestsMatch", () => {
   it("matchAll inputs", () => {
     return Promise.all(
       controlData
-        .concat(successData)
+        .concat(generateSuccessCases())
         .map(({ name, requestQuery, request, response, options, expect }) =>
           testCases(name, requestQuery, request, response, options, expect)
         )
@@ -116,19 +116,18 @@ function testScript() {
     CACHE_NAME,
     [requestQueryURL, requestQueryInit],
     [requestURL, requestInit],
-    _response,
+    response,
     cacheOptions,
     finished,
   ] = arguments;
   const requestQuery = new Request(requestQueryURL, requestQueryInit);
   const request = new Request(requestURL, requestInit);
-  const response = new Response("42");
   let testResult = null;
   caches
     .open(CACHE_NAME)
     .then((cache) =>
       cache
-        .put(request, response)
+        .put(request, new Response(response))
         .then(() => cache.match(requestQuery, cacheOptions))
     )
     .then((cachedResponse) => {
@@ -146,11 +145,11 @@ function testLib(
   name,
   [requestQueryURL, requestQueryInit],
   [requestURL, requestInit],
-  _response,
+  response,
   options
 ) {
   const requestQuery = new Request(requestQueryURL, requestQueryInit);
   const request = new Request(requestURL, requestInit);
-  const testResult = requestsMatch(requestQuery, request, null, options);
+  const testResult = requestsMatch(requestQuery, request, response, options);
   return testResult;
 }

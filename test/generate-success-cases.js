@@ -1,5 +1,3 @@
-import fs from "fs";
-
 const fqdns = ["https://example.com", "http://example.com"];
 const urls = [
   "/portion",
@@ -77,28 +75,23 @@ const options = [
 const cartesian = (...a) =>
   a.reduce((a, b) => a.flatMap((d) => b.map((e) => [d, e].flat())));
 
-const successData = cartesian(
-  cartesian(fqdns, urls).map(([fqdn, path]) => `${fqdn}${path}`),
-  headers,
-  methods,
-  options
-).reduce(
-  (acc, [url, headers, method, options], index) =>
-    acc.concat([
-      {
-        name: `success-${index}`,
-        requestQuery: [url, { headers, method }],
-        request: [url, { headers, method }],
-        response: null,
-        options,
-        expect: [true, true],
-      },
-    ]),
-  []
-);
-
-fs.writeFileSync(
-  process.cwd() + "/test/generated-success-cases.json",
-  JSON.stringify(successData),
-  "utf-8"
-);
+export const generateSuccessCases = () =>
+  cartesian(
+    cartesian(fqdns, urls).map(([fqdn, path]) => `${fqdn}${path}`),
+    headers,
+    methods,
+    options
+  ).reduce(
+    (acc, [url, headers, method, options], index) =>
+      acc.concat([
+        {
+          name: `success-${index}`,
+          requestQuery: [url, { headers, method }],
+          request: [url, { headers, method }],
+          response: null,
+          options,
+          expect: [true, true],
+        },
+      ]),
+    []
+  );
