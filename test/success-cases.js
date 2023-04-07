@@ -18,8 +18,6 @@ const urls = [
   "/another/portion#hash",
   "/another/portion?field=value#hash",
 ];
-const headers = [{}];
-const methods = ["GET"];
 const options = [
   {
     excludeFragment: true,
@@ -75,22 +73,21 @@ const options = [
 const cartesian = (...a) =>
   a.reduce((a, b) => a.flatMap((d) => b.map((e) => [d, e].flat())));
 
-export const generateSuccessCases = () =>
+export const successCases = () =>
   cartesian(
     cartesian(fqdns, urls).map(([fqdn, path]) => `${fqdn}${path}`),
-    headers,
-    methods,
+
     options
   ).reduce(
-    (acc, [url, headers, method, options], index) =>
+    (acc, [url, options], index) =>
       acc.concat([
         {
           name: `success-${index}`,
-          requestQuery: [url, { headers, method }],
-          request: [url, { headers, method }],
+          requestQuery: [url, {}],
+          request: [url, {}],
           response: null,
           options,
-          expect: [true, true],
+          expect: [0, 0],
         },
       ]),
     []

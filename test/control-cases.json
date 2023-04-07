@@ -1,26 +1,156 @@
 [
   {
-    "name": "control-test--hit",
     "requestQuery": ["https://example.com"],
     "request": ["https://example.com"],
-    "response": null,
     "options": {},
-    "expect": [true, true]
+    "response": null,
+    "expect": [0, 0]
   },
   {
-    "name": "control-test--miss",
-    "requestQuery": ["https://example.com"],
-    "request": ["https://example.com/answer"],
-    "response": null,
+    "requestQuery": ["https://example.com", { "method": "POST" }],
+    "request": ["https://example.com"],
     "options": {},
-    "expect": [false, false]
+    "response": null,
+    "expect": [1, 1]
   },
   {
-    "name": "protocol-test--miss",
     "requestQuery": ["https://example.com"],
-    "request": ["http://example.com"],
-    "response": null,
+    "request": ["https://example.com", { "method": "POST" }],
     "options": {},
-    "expect": [false, false]
+    "response": null,
+    "expect": [2, 1]
+  },
+  {
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com"],
+    "options": { "ignoreMethod": true },
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com", { "method": "POST" }],
+    "request": ["https://example.com"],
+    "options": { "ignoreMethod": true },
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com", { "method": "POST" }],
+    "options": { "ignoreMethod": true },
+    "response": null,
+    "expect": [2, 0]
+  },
+  {
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com"],
+    "options": {},
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com?foo=bar"],
+    "request": ["https://example.com?foo=bar"],
+    "options": {},
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com?foo=bar"],
+    "request": ["https://example.com?foo=bar"],
+    "options": { "ignoreSearch": "true" },
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com?foo=bar"],
+    "request": ["https://example.com"],
+    "options": {},
+    "response": null,
+    "expect": [1, 1]
+  },
+  {
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com?foo=bar"],
+    "options": {},
+    "response": null,
+    "expect": [1, 1]
+  },
+  {
+    "requestQuery": ["https://example.com?foo=bar&fee=fie"],
+    "request": ["https://example.com?foo=bar"],
+    "options": {},
+    "response": null,
+    "expect": [1, 1]
+  },
+  {
+    "requestQuery": ["https://example.com?foo=bar"],
+    "request": ["https://example.com"],
+    "options": { "ignoreSearch": true },
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com?foo=bar"],
+    "options": { "ignoreSearch": true },
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com?foo=bar&fee=fie"],
+    "request": ["https://example.com?foo=bar"],
+    "options": { "ignoreSearch": true },
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com#example"],
+    "request": ["https://example.com#example"],
+    "options": {},
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com"],
+    "options": {},
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com#example"],
+    "request": ["https://example.com"],
+    "options": {},
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com#example"],
+    "request": ["https://example.com#example"],
+    "options": {},
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com#elpmaxe"],
+    "request": ["https://example.com#example"],
+    "options": {},
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com"],
+    "request": ["https://example.com"],
+    "options": { "excludeFragment": false },
+    "response": null,
+    "expect": [0, 0]
+  },
+  {
+    "requestQuery": ["https://example.com#example"],
+    "request": ["https://example.com#example"],
+    "options": { "excludeFragment": false },
+    "response": null,
+    "expect": [0, 0]
   }
 ]

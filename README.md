@@ -10,6 +10,8 @@ npm install # Install dependencies
 npx tsc # Build and emit lib to `dist/`
 ```
 
+Going forward, directions assume the working directory is the project root as described above.
+
 ### Testing
 
 ```bash
@@ -24,7 +26,5 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout cert.key -out cert.p
 npx tsc
 
 # Test runner
-node --test
-# Same as
 npm run test
 ```

@@ -6,14 +6,103 @@ import path from "path";
 import { Browser, Builder } from "selenium-webdriver";
 import gecko from "selenium-webdriver/firefox.js";
 
-import controlData from "./control-cases.json" assert { type: "json" };
-import { generateSuccessCases } from "./generate-success-cases.js";
+import controlCases from "./control-cases.json" assert { type: "json" };
+import { successCases } from "./success-cases.js";
 import { httpsServerFactory } from "./server.js";
 
 import { requestsMatch } from "../dist/index.js";
 
 config();
-const pathGeckoDriver = process.env.PATH_GECKODRIVER;
+
+const TestCode = {
+  Hit: 0,
+  Miss: 1,
+  Error: 2,
+  0: "Hit",
+  1: "Miss",
+  2: "Error",
+};
+
+describe("requestsMatch", () => {
+  let driver, server;
+  before(() => {
+    const builder = new Builder().forBrowser(Browser.FIREFOX);
+    const capabilities = builder.getCapabilities().setAcceptInsecureCerts(true);
+    return Promise.all([
+      httpsServerFactory().then((newServer) => {
+        server = newServer;
+      }),
+      builder
+        .withCapabilities(capabilities)
+        .setFirefoxService(
+          new gecko.ServiceBuilder(
+            path.join(process.cwd(), process.env.PATH_GECKODRIVER)
+          )
+        )
+        .build()
+        .then((webDriver) =>
+          webDriver.get("https://localhost:8000").then(() => {
+            driver = webDriver;
+          })
+        ),
+    ]);
+  });
+  after(() => {
+    server.close();
+    driver.close();
+  });
+
+  [...controlCases, ...successCases()].forEach(
+    ({
+      requestQuery,
+      request,
+      options,
+      response,
+      expect: [expectedControlResult, expectedTestResult],
+    }) => {
+      const description = [
+        `${requestQuery[0]} ${JSON.stringify(requestQuery[1] ?? {})}`,
+        `${request[0]} ${JSON.stringify(request[1] ?? {})}`,
+        JSON.stringify(options ?? {}),
+      ].join(", ");
+      it(description, async () => {
+        const cacheName = md5(description);
+        await Promise.all([
+          driver.executeAsyncScript(
+            testScript,
+            cacheName,
+            requestQuery,
+            request,
+            response,
+            options
+          ),
+          testLib(cacheName, requestQuery, request, response, options),
+        ]).then(([controlResult, testResult]) => {
+          assert.equal(
+            controlResult >= TestCode.Hit && controlResult <= TestCode.Error,
+            true,
+            `Control result out-of-bounds`
+          );
+          assert.equal(
+            controlResult,
+            expectedControlResult,
+            `Control expects cache ${TestCode[expectedControlResult]}`
+          );
+          assert.equal(
+            testResult >= TestCode.Hit && testResult <= TestCode.Error,
+            true,
+            `Test result out-of-bounds`
+          );
+          assert.equal(
+            testResult,
+            expectedTestResult,
+            `Test expects cache ${TestCode[expectedTestResult]}`
+          );
+        });
+      });
+    }
+  );
+});
 
 function md5(str) {
   const hash = createHash("md5");
@@ -22,134 +111,51 @@ function md5(str) {
   return out;
 }
 
-describe("requestsMatch", () => {
-  let driver, server;
-  before(() =>
-    httpsServerFactory().then((newServer) => {
-      server = newServer;
-    })
-  );
-  after(() => server.close());
-  before(() => {
-    const builder = new Builder().forBrowser(Browser.FIREFOX);
-    const capabilities = builder.getCapabilities().setAcceptInsecureCerts(true);
-    return builder
-      .withCapabilities(capabilities)
-      .setFirefoxService(
-        new gecko.ServiceBuilder(path.join(process.cwd(), pathGeckoDriver))
-      )
-      .build()
-      .then((webDriver) =>
-        webDriver.get("https://localhost:8000").then(() => {
-          driver = webDriver;
-        })
-      );
-  });
-  after(() => driver.close());
-
-  /**
-   * @param {string} name
-   * @param {[string, RequestInit]} requestQuery
-   * @param {[string, RequestInit]} request
-   * @param {null} response
-   * @param {Object} options
-   * @param {[boolean,boolean]} expects
-   */
-  const testCases = (
-    name,
-    requestQuery,
-    request,
-    response,
-    options,
-    [expectedControlResult, expectedTestResult]
-  ) => {
-    const cacheName = md5(name);
-    return Promise.all([
-      driver.executeAsyncScript(
-        testScript,
-        cacheName,
-        requestQuery,
-        request,
-        response,
-        options
-      ),
-      Promise.resolve(
-        testLib(cacheName, requestQuery, request, response, options)
-      ),
-    ]).then(([controlResult, testResult]) =>
-      test(name, () => {
-        assert.equal(
-          typeof controlResult,
-          "boolean",
-          `[${name}] Control test failed`
-        );
-        assert.equal(typeof testResult, "boolean", `[${name}] Test failed`);
-        assert.equal(
-          controlResult,
-          expectedControlResult,
-          `[${name}] Control test expects cache ${
-            expectedTestResult ? "hit" : "miss"
-          }`
-        );
-        assert.equal(
-          testResult,
-          expectedTestResult,
-          `[${name}] Test expects cache ${expectedTestResult ? "hit" : "miss"}`
-        );
-      })
-    );
-  };
-
-  it("matchAll inputs", () => {
-    return Promise.all(
-      controlData
-        .concat(generateSuccessCases())
-        .map(({ name, requestQuery, request, response, options, expect }) =>
-          testCases(name, requestQuery, request, response, options, expect)
-        )
-    );
-  });
-});
-
 function testScript() {
-  const [
-    CACHE_NAME,
-    [requestQueryURL, requestQueryInit],
-    [requestURL, requestInit],
-    response,
-    cacheOptions,
-    finished,
-  ] = arguments;
-  const requestQuery = new Request(requestQueryURL, requestQueryInit);
-  const request = new Request(requestURL, requestInit);
-  let testResult = null;
-  caches
-    .open(CACHE_NAME)
-    .then((cache) =>
-      cache
-        .put(request, new Response(response))
-        .then(() => cache.match(requestQuery, cacheOptions))
-    )
-    .then((cachedResponse) => {
-      testResult = !!cachedResponse;
-    })
-    .catch((err) => {
-      finished(err?.toString() ?? `${err}`);
-    })
-    .finally(() => {
-      finished(testResult);
-    });
+  try {
+    const [
+      CACHE_NAME,
+      [requestQueryURL, requestQueryInit],
+      [requestURL, requestInit],
+      response,
+      cacheOptions,
+      finished,
+    ] = arguments;
+    const requestQuery = new Request(requestQueryURL, requestQueryInit);
+    const request = new Request(requestURL, requestInit);
+    caches
+      .open(CACHE_NAME)
+      .then((cache) =>
+        cache
+          .put(request, new Response(response))
+          .then(() => cache.match(requestQuery, cacheOptions))
+      )
+      .then((cachedResponse) => {
+        finished(cachedResponse ? 0 : 1);
+      })
+      .catch((err) => {
+        finished(2);
+      });
+  } catch (anyError) {
+    finished(2);
+  }
 }
 
 function testLib(
-  name,
+  CACHE_NAME,
   [requestQueryURL, requestQueryInit],
   [requestURL, requestInit],
   response,
   options
 ) {
-  const requestQuery = new Request(requestQueryURL, requestQueryInit);
-  const request = new Request(requestURL, requestInit);
-  const testResult = requestsMatch(requestQuery, request, response, options);
-  return testResult;
+  try {
+    const requestQuery = new Request(requestQueryURL, requestQueryInit);
+    const request = new Request(requestURL, requestInit);
+    const testResult = requestsMatch(requestQuery, request, options);
+    if (testResult) return TestCode.Hit;
+    return TestCode.Miss;
+  } catch (anyError) {
+    console.error(anyError);
+    return TestCode.Error;
+  }
 }
