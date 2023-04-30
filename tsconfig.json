@@ -28,7 +28,7 @@
     "module": "ESNext",
     "moduleResolution": "nodenext",
     "resolveJsonModule": false,
-    "lib": ["DOM", "ESNext", "WebWorker"]
+    "lib": ["DOM", "ESNext"]
   },
   "include": ["lib"]
 }

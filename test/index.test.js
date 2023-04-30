@@ -1,6 +1,6 @@
 import { expect } from "@esm-bundle/chai";
 
-import { requestsMatch, unwrapRequestOrFactory } from "../dist/lib/index.js";
+import { requestsMatch, unwrapRequestOrFactory } from "../dist/index.js";
 
 describe("requestsMatch", () => {
   it("Misc Assertions", () => {
