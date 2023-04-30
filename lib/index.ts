@@ -64,13 +64,43 @@ export function matchAll(
   for (let [requestOrFactory, responseHandler] of handlers) {
     if (
       typeof requestOrFactory === "undefined" ||
-      ((handledRequest = unwrapRequest(_requestQuery, requestOrFactory)) &&
+      ((handledRequest = unwrapRequestOrFactory(
+        _requestQuery,
+        requestOrFactory
+      )) &&
         requestsMatch(_requestQuery, handledRequest, options))
     ) {
       responses.push(responseHandler(_requestQuery));
     }
   }
   return responses;
+}
+
+/**
+ * @documentation https://www.w3.org/TR/service-workers/#dom-cache-matchall
+ * Matches `requestQuery` against handler tuples and returns an array of `Response | Promise<Response>`.
+ */
+export function matchFirst(
+  handlers: HandlerTuple[],
+  requestQuery: string | Request,
+  options?: Partial<RouterOptions>
+) {
+  const _requestQuery =
+    requestQuery instanceof Request ? requestQuery : new Request(requestQuery);
+  let handledRequest: Request | undefined;
+  for (let [requestOrFactory, responseHandler] of handlers) {
+    if (
+      typeof requestOrFactory === "undefined" ||
+      ((handledRequest = unwrapRequestOrFactory(
+        _requestQuery,
+        requestOrFactory
+      )) &&
+        requestsMatch(_requestQuery, handledRequest, options))
+    ) {
+      return responseHandler(_requestQuery);
+    }
+  }
+  return undefined;
 }
 
 /**
@@ -103,7 +133,7 @@ export function requestsMatch(
 }
 
 /** @internal */
-export function unwrapRequest(
+export function unwrapRequestOrFactory(
   requestQuery: Request,
   requestOrFactory: HandlerTuple[0],
   options?: Partial<RouterOptions>

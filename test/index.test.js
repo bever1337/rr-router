@@ -1,6 +1,6 @@
 import { expect } from "@esm-bundle/chai";
 
-import { requestsMatch, unwrapRequest } from "../dist/index.js";
+import { requestsMatch, unwrapRequestOrFactory } from "../dist/lib/index.js";
 
 describe("requestsMatch", () => {
   it("Misc Assertions", () => {
@@ -151,19 +151,20 @@ describe("requestsMatch", () => {
   });
 });
 
-describe("unwrapRequest", () => {
+describe("unwrapRequestOrFactory", () => {
   const inRequest = new Request("https://example.com");
   const inOptions = {};
 
   it("Returns requestOrFactory when instanceof Request or undefined", () => {
-    expect(unwrapRequest()).to.equal(undefined);
-    expect(unwrapRequest(inRequest)).to.equal(undefined);
-    expect(unwrapRequest(inRequest, inRequest)).to.equal(inRequest);
+    expect(unwrapRequestOrFactory()).to.equal(undefined);
+    expect(unwrapRequestOrFactory(inRequest)).to.equal(undefined);
+    expect(unwrapRequestOrFactory(inRequest, inRequest)).to.equal(inRequest);
   });
 
   it("Constructs Request from string", () => {
     expect(
-      unwrapRequest(inRequest, "https://example.com/") instanceof Request
+      unwrapRequestOrFactory(inRequest, "https://example.com/") instanceof
+        Request
     ).to.equal(true);
   });
 
@@ -177,9 +178,9 @@ describe("unwrapRequest", () => {
     expect(new Request("https://example.com/").url).to.equal(
       "https://example.com/"
     );
-    expect(unwrapRequest(inRequest, "https://example.com/").url).to.equal(
-      "https://example.com/"
-    );
+    expect(
+      unwrapRequestOrFactory(inRequest, "https://example.com/").url
+    ).to.equal("https://example.com/");
 
     expect(new URL("https://example.com").href).to.equal(
       "https://example.com/"
@@ -190,17 +191,19 @@ describe("unwrapRequest", () => {
     expect(new Request("https://example.com").url).to.equal(
       "https://example.com/"
     );
-    expect(unwrapRequest(inRequest, "https://example.com").url).to.equal(
-      "https://example.com/"
-    );
+    expect(
+      unwrapRequestOrFactory(inRequest, "https://example.com").url
+    ).to.equal("https://example.com/");
   });
 
   it("Accepts request factory", () => {
-    expect(unwrapRequest(inRequest, () => undefined)).to.equal(undefined);
-    expect(unwrapRequest(inRequest, (_inRequest) => _inRequest)).to.equal(
-      inRequest
+    expect(unwrapRequestOrFactory(inRequest, () => undefined)).to.equal(
+      undefined
     );
-    unwrapRequest(
+    expect(
+      unwrapRequestOrFactory(inRequest, (_inRequest) => _inRequest)
+    ).to.equal(inRequest);
+    unwrapRequestOrFactory(
       inRequest,
       (_inRequest, _options) => {
         expect(inRequest).to.equal(_inRequest);
@@ -209,7 +212,7 @@ describe("unwrapRequest", () => {
       },
       inOptions
     );
-    unwrapRequest(inRequest, (_inRequest, _options) => {
+    unwrapRequestOrFactory(inRequest, (_inRequest, _options) => {
       expect(inRequest).to.equal(_inRequest);
       expect(undefined).to.equal(_options);
       return _inRequest;
@@ -217,29 +220,35 @@ describe("unwrapRequest", () => {
   });
 
   it("Has no type-checking or constraints on `requestQuery` or `options`", () => {
-    expect(() => unwrapRequest()).not.to.throw();
-    expect(() => unwrapRequest(undefined, undefined)).not.to.throw();
-    expect(() => unwrapRequest(undefined, inRequest, undefined)).not.to.throw();
-    expect(() => unwrapRequest(undefined, undefined, undefined)).not.to.throw();
-    expect(() => unwrapRequest(42, inRequest)).not.to.throw();
-    expect(() => unwrapRequest("42", "42", "42")).to.not.throw();
+    expect(() => unwrapRequestOrFactory()).not.to.throw();
+    expect(() => unwrapRequestOrFactory(undefined, undefined)).not.to.throw();
+    expect(() =>
+      unwrapRequestOrFactory(undefined, inRequest, undefined)
+    ).not.to.throw();
+    expect(() =>
+      unwrapRequestOrFactory(undefined, undefined, undefined)
+    ).not.to.throw();
+    expect(() => unwrapRequestOrFactory(42, inRequest)).not.to.throw();
+    expect(() => unwrapRequestOrFactory("42", "42", "42")).to.not.throw();
   });
 
   it("Non-FQDN have unknown URL outputs", () => {
-    expect(unwrapRequest(undefined, "42").url).to.not.equal("42");
-    expect(unwrapRequest(undefined, "/42").url.endsWith("42")).to.equal(true);
-    expect(unwrapRequest(undefined, "https://example.com/").url).to.equal(
-      "https://example.com/"
-    );
+    expect(unwrapRequestOrFactory(undefined, "42").url).to.not.equal("42");
+    expect(
+      unwrapRequestOrFactory(undefined, "/42").url.endsWith("42")
+    ).to.equal(true);
+    expect(
+      unwrapRequestOrFactory(undefined, "https://example.com/").url
+    ).to.equal("https://example.com/");
   });
 
   it("Unexpected types fall-through and will be called", () => {
-    expect(() => unwrapRequest(undefined, null)).to.throw();
-    expect(() => unwrapRequest(undefined, 42)).to.throw();
-    expect(() => unwrapRequest(undefined, false)).to.throw();
-    expect(() => unwrapRequest(undefined, {})).to.throw();
-    expect(() => unwrapRequest(undefined, [])).to.throw();
-    unwrapRequest(
+    expect(() => unwrapRequestOrFactory(undefined, null)).to.throw();
+    expect(() => unwrapRequestOrFactory(undefined, 42)).to.throw();
+    expect(() => unwrapRequestOrFactory(undefined, false)).to.throw();
+    expect(() => unwrapRequestOrFactory(undefined, {})).to.throw();
+    expect(() => unwrapRequestOrFactory(undefined, [])).to.throw();
+    unwrapRequestOrFactory(
       42,
       (_inRequest, _inOptions) => {
         expect(_inRequest).to.equal(42);
@@ -248,6 +257,6 @@ describe("unwrapRequest", () => {
       },
       42
     );
-    expect(unwrapRequest(undefined, () => 42)).to.equal(42);
+    expect(unwrapRequestOrFactory(undefined, () => 42)).to.equal(42);
   });
 });
