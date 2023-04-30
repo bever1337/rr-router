@@ -8,14 +8,15 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "node --test"
+    "test": "web-test-runner test/**/*.test.js --node-resolve --playwright --browsers chromium firefox webkit"
   },
   "type": "module",
   "author": "Bever1337 <bever1337@posteo.net>",
   "license": "MIT",
   "devDependencies": {
-    "dotenv": "^16.0.3",
-    "selenium-webdriver": "^4.8.1",
+    "@esm-bundle/chai": "^4.3.4-fix.0",
+    "@web/test-runner": "^0.16.1",
+    "@web/test-runner-playwright": "^0.10.0",
     "typescript": "^4.9.5"
   }
 }

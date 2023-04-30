@@ -1,5 +1,11 @@
 # Request/Response Router
 
+A dependency-free, semi-isomorphic router for JS environments with Request, Response, and URL globals as-defined by whatwg.
+
+## Motivation
+
+Inspired by this [discussion](https://github.com/kwhitley/itty-router/discussions/107) on the `itty-router` project, `rr-router` is a synchronous, request matching API.
+
 ## Setup
 
 ```bash
@@ -7,24 +13,19 @@
 git clone git@github.com:bever1337/rr-router.git # Clone the repository
 cd rr-router # Move into repository
 npm install # Install dependencies
-npx tsc # Build and emit lib to `dist/`
 ```
 
 Going forward, directions assume the working directory is the project root as described above.
 
+### Building
+
+```bash
+npx tsc # Build and emit lib to `dist/`
+```
+
 ### Testing
 
 ```bash
-# Prerequisite: Install webdrivers to the dev machine
-touch .env
-echo 'PATH_GECKODRIVER="./relative-path/from-root/to-gecko-driver"' > .env
-
-# create HTTPS certificates for testing with Caches API
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout cert.key -out cert.pem -sha256
-
-# Build with `npx tsc`, see above
-npx tsc
-
-# Test runner
-npm run test
+npx tsc # see above
+npm run test # web-test-runner coordinates playwright test environments
 ```

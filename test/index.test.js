@@ -1,161 +1,253 @@
-import { config } from "dotenv";
-import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { after, before, describe, it } from "node:test";
-import path from "path";
-import { Browser, Builder } from "selenium-webdriver";
-import gecko from "selenium-webdriver/firefox.js";
+import { expect } from "@esm-bundle/chai";
 
-import controlCases from "./control-cases.json" assert { type: "json" };
-import { successCases } from "./success-cases.js";
-import { httpsServerFactory } from "./server.js";
-
-import { requestsMatch } from "../dist/index.js";
-
-config();
-
-const TestCode = {
-  Hit: 0,
-  Miss: 1,
-  Error: 2,
-  0: "Hit",
-  1: "Miss",
-  2: "Error",
-};
+import { requestsMatch, unwrapRequest } from "../dist/index.js";
 
 describe("requestsMatch", () => {
-  let driver, server;
-  before(() => {
-    const builder = new Builder().forBrowser(Browser.FIREFOX);
-    const capabilities = builder.getCapabilities().setAcceptInsecureCerts(true);
-    return Promise.all([
-      httpsServerFactory().then((newServer) => {
-        server = newServer;
-      }),
-      builder
-        .withCapabilities(capabilities)
-        .setFirefoxService(
-          new gecko.ServiceBuilder(
-            path.join(process.cwd(), process.env.PATH_GECKODRIVER)
-          )
-        )
-        .build()
-        .then((webDriver) =>
-          webDriver.get("https://localhost:8000").then(() => {
-            driver = webDriver;
-          })
-        ),
-    ]);
-  });
-  after(() => {
-    server.close();
-    driver.close();
+  it("Misc Assertions", () => {
+    // Request assumes current origin
+    expect(() => new Request()).to.throw();
+    expect(() => new Request("")).not.to.throw();
+    // reference equality is non-factor
+    let requestRef = new Request("");
+    expect(requestsMatch(new Request(""), new Request(""))).to.equal(true);
+    expect(requestsMatch(requestRef, requestRef)).to.equal(true);
+    requestRef = new Request("https://example.com");
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com")
+      )
+    ).to.equal(true);
+    expect(requestsMatch(requestRef, requestRef)).to.equal(true);
+    // default method is GETA
+    expect(requestRef.method).to.equal("GET");
+    expect(new Request("https://example.com").method).to.equal(
+      new Request("https://example.com", { method: "GET" }).method
+    );
   });
 
-  [...controlCases, ...successCases()].forEach(
-    ({
-      requestQuery,
-      request,
-      options,
-      response,
-      expect: [expectedControlResult, expectedTestResult],
-    }) => {
-      const description = [
-        `${requestQuery[0]} ${JSON.stringify(requestQuery[1] ?? {})}`,
-        `${request[0]} ${JSON.stringify(request[1] ?? {})}`,
-        JSON.stringify(options ?? {}),
-      ].join(", ");
-      it(description, async () => {
-        const cacheName = md5(description);
-        await Promise.all([
-          driver.executeAsyncScript(
-            testScript,
-            cacheName,
-            requestQuery,
-            request,
-            response,
-            options
-          ),
-          testLib(cacheName, requestQuery, request, response, options),
-        ]).then(([controlResult, testResult]) => {
-          assert.equal(
-            controlResult >= TestCode.Hit && controlResult <= TestCode.Error,
-            true,
-            `Control result out-of-bounds`
-          );
-          assert.equal(
-            controlResult,
-            expectedControlResult,
-            `Control expects cache ${TestCode[expectedControlResult]}`
-          );
-          assert.equal(
-            testResult >= TestCode.Hit && testResult <= TestCode.Error,
-            true,
-            `Test result out-of-bounds`
-          );
-          assert.equal(
-            testResult,
-            expectedTestResult,
-            `Test expects cache ${TestCode[expectedTestResult]}`
-          );
-        });
-      });
-    }
-  );
+  it("ignoreMethod", () => {
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com")
+      )
+    ).to.equal(true);
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com"),
+        { ignoreMethod: false }
+      )
+    ).to.equal(true);
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com"),
+        { ignoreMethod: true }
+      )
+    ).to.equal(true);
+
+    expect(
+      requestsMatch(
+        new Request("https://example.com", { method: "PUT" }),
+        new Request("https://example.com"),
+        { ignoreMethod: false }
+      )
+    ).to.equal(false);
+    expect(
+      requestsMatch(
+        new Request("https://example.com", { method: "PUT" }),
+        new Request("https://example.com"),
+        { ignoreMethod: true }
+      )
+    ).to.equal(true);
+    expect(
+      requestsMatch(
+        new Request("https://example.com", { method: "PUT" }),
+        new Request("https://example.com", { method: "POST" }),
+        { ignoreMethod: false }
+      )
+    ).to.equal(false);
+    expect(
+      requestsMatch(
+        new Request("https://example.com", { method: "PUT" }),
+        new Request("https://example.com", { method: "POST" }),
+        { ignoreMethod: true }
+      )
+    ).to.equal(true);
+  });
+
+  it("ignoreSearch", () => {
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com?foo=bar")
+      )
+    ).to.equal(false);
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com?foo=bar"),
+        { ignoreSearch: false }
+      )
+    ).to.equal(false);
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com?foo=bar"),
+        { ignoreSearch: true }
+      )
+    ).to.equal(true);
+  });
+
+  it("A URL fragment does not require a preceding slash", () => {
+    expect(new URL("https://example.com#foo").href).to.equal(
+      new URL("https://example.com/#foo").href
+    );
+    expect(
+      requestsMatch(
+        new Request("https://example.com/#foo"),
+        new Request("https://example.com#foo")
+      )
+    ).to.equal(true);
+    expect(
+      requestsMatch(
+        new Request("https://example.com/#foo"),
+        new Request("https://example.com#foo"),
+        { excludeFragment: true }
+      )
+    ).to.equal(true);
+    expect(
+      requestsMatch(
+        new Request("https://example.com/#foo"),
+        new Request("https://example.com#foo"),
+        { excludeFragment: false }
+      )
+    ).to.equal(true);
+  });
+
+  it("excludeFragment", () => {
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com/#foo")
+      )
+    ).to.equal(true);
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com/#foo"),
+        { excludeFragment: true }
+      )
+    ).to.equal(true);
+    expect(
+      requestsMatch(
+        new Request("https://example.com"),
+        new Request("https://example.com/#foo"),
+        { excludeFragment: false }
+      )
+    ).to.equal(false);
+  });
 });
 
-function md5(str) {
-  const hash = createHash("md5");
-  hash.update(str, "utf-8");
-  const out = hash.digest("hex");
-  return out;
-}
+describe("unwrapRequest", () => {
+  const inRequest = new Request("https://example.com");
+  const inOptions = {};
 
-function testScript() {
-  try {
-    const [
-      CACHE_NAME,
-      [requestQueryURL, requestQueryInit],
-      [requestURL, requestInit],
-      response,
-      cacheOptions,
-      finished,
-    ] = arguments;
-    const requestQuery = new Request(requestQueryURL, requestQueryInit);
-    const request = new Request(requestURL, requestInit);
-    caches
-      .open(CACHE_NAME)
-      .then((cache) =>
-        cache
-          .put(request, new Response(response))
-          .then(() => cache.match(requestQuery, cacheOptions))
-      )
-      .then((cachedResponse) => {
-        finished(cachedResponse ? 0 : 1);
-      })
-      .catch((err) => {
-        finished(2);
-      });
-  } catch (anyError) {
-    finished(2);
-  }
-}
+  it("Returns requestOrFactory when instanceof Request or undefined", () => {
+    expect(unwrapRequest()).to.equal(undefined);
+    expect(unwrapRequest(inRequest)).to.equal(undefined);
+    expect(unwrapRequest(inRequest, inRequest)).to.equal(inRequest);
+  });
 
-function testLib(
-  CACHE_NAME,
-  [requestQueryURL, requestQueryInit],
-  [requestURL, requestInit],
-  response,
-  options
-) {
-  try {
-    const requestQuery = new Request(requestQueryURL, requestQueryInit);
-    const request = new Request(requestURL, requestInit);
-    const testResult = requestsMatch(requestQuery, request, options);
-    if (testResult) return TestCode.Hit;
-    return TestCode.Miss;
-  } catch (anyError) {
-    console.error(anyError);
-    return TestCode.Error;
-  }
-}
+  it("Constructs Request from string", () => {
+    expect(
+      unwrapRequest(inRequest, "https://example.com/") instanceof Request
+    ).to.equal(true);
+  });
+
+  it("expects Request to use the URL's href property when unwrapping from string", () => {
+    expect(new URL("https://example.com/").href).to.equal(
+      "https://example.com/"
+    );
+    expect(new URL("https://example.com/").origin).to.equal(
+      "https://example.com"
+    );
+    expect(new Request("https://example.com/").url).to.equal(
+      "https://example.com/"
+    );
+    expect(unwrapRequest(inRequest, "https://example.com/").url).to.equal(
+      "https://example.com/"
+    );
+
+    expect(new URL("https://example.com").href).to.equal(
+      "https://example.com/"
+    );
+    expect(new URL("https://example.com").origin).to.equal(
+      "https://example.com"
+    );
+    expect(new Request("https://example.com").url).to.equal(
+      "https://example.com/"
+    );
+    expect(unwrapRequest(inRequest, "https://example.com").url).to.equal(
+      "https://example.com/"
+    );
+  });
+
+  it("Accepts request factory", () => {
+    expect(unwrapRequest(inRequest, () => undefined)).to.equal(undefined);
+    expect(unwrapRequest(inRequest, (_inRequest) => _inRequest)).to.equal(
+      inRequest
+    );
+    unwrapRequest(
+      inRequest,
+      (_inRequest, _options) => {
+        expect(inRequest).to.equal(_inRequest);
+        expect(inOptions).to.equal(_options);
+        return _inRequest;
+      },
+      inOptions
+    );
+    unwrapRequest(inRequest, (_inRequest, _options) => {
+      expect(inRequest).to.equal(_inRequest);
+      expect(undefined).to.equal(_options);
+      return _inRequest;
+    });
+  });
+
+  it("Has no type-checking or constraints on `requestQuery` or `options`", () => {
+    expect(() => unwrapRequest()).not.to.throw();
+    expect(() => unwrapRequest(undefined, undefined)).not.to.throw();
+    expect(() => unwrapRequest(undefined, inRequest, undefined)).not.to.throw();
+    expect(() => unwrapRequest(undefined, undefined, undefined)).not.to.throw();
+    expect(() => unwrapRequest(42, inRequest)).not.to.throw();
+    expect(() => unwrapRequest("42", "42", "42")).to.not.throw();
+  });
+
+  it("Non-FQDN have unknown URL outputs", () => {
+    expect(unwrapRequest(undefined, "42").url).to.not.equal("42");
+    expect(unwrapRequest(undefined, "/42").url.endsWith("42")).to.equal(true);
+    expect(unwrapRequest(undefined, "https://example.com/").url).to.equal(
+      "https://example.com/"
+    );
+  });
+
+  it("Unexpected types fall-through and will be called", () => {
+    expect(() => unwrapRequest(undefined, null)).to.throw();
+    expect(() => unwrapRequest(undefined, 42)).to.throw();
+    expect(() => unwrapRequest(undefined, false)).to.throw();
+    expect(() => unwrapRequest(undefined, {})).to.throw();
+    expect(() => unwrapRequest(undefined, [])).to.throw();
+    unwrapRequest(
+      42,
+      (_inRequest, _inOptions) => {
+        expect(_inRequest).to.equal(42);
+        expect(_inOptions).to.equal(42);
+        return undefined;
+      },
+      42
+    );
+    expect(unwrapRequest(undefined, () => 42)).to.equal(42);
+  });
+});
