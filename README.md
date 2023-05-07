@@ -1,12 +1,10 @@
 # Request/Response Router
 
-A dependency-free, semi-isomorphic router for JS environments with Request, Response, and URL globals as-defined by whatwg.
+A dependency-free, semi-isomorphic, Request and Response (rr) router for JS environments with Request, Response, and URL globals as-defined by whatwg. `rr-router` exposes a small interface for synchronously matching two Request objects and a/synchronously creating a Response. As appropriate, `rr-router` uses [`dom-cache-matchall`](https://www.w3.org/TR/service-workers/#dom-cache-matchall) and [`request-matches-cached-item-algorithm`](https://www.w3.org/TR/service-workers/#request-matches-cached-item-algorithm) for reference.
 
-## Motivation
+Inspired by this [discussion](https://github.com/kwhitley/itty-router/discussions/107) on the `itty-router` project, `rr-router` is intentionally a synchronous, request matching API.
 
-Inspired by this [discussion](https://github.com/kwhitley/itty-router/discussions/107) on the `itty-router` project, `rr-router` is a synchronous, request matching API.
-
-## Usage
+## Examples
 
 ### Cloudflare Workers
 
@@ -20,8 +18,9 @@ const routes: HandlerTuple[] = [
     (incomingRequest) =>
       new Request(
         '/my/resource',
-        // Unlike a ServiceWorker (browser) `ServiceWorkerGlobalScope`, Cloudflare Worker's do not have a location API
-        // Use the incoming request's origin for routing because CF guarantees a single worker runs per domain
+        // Cloudflare Worker's do not have a location API
+        // Cloudflare has already guaranteed origin routing,
+        // use the incoming request's origin for additional matching
         new URL(incomingRequest.url).origin
       ),
     () => new Response("Hello, world")
@@ -38,9 +37,10 @@ export default {
     env: {},
     ctx: ExecutionContext
   ): Promise<Response> {
-    // because our last route is wildcard, `matchFirst` will always return the 404
-    // Alternatively: `return matchFirst(routes, request) ?? new Response(undefined, { status: 404 });`
+    // because our last route is wildcard,
+    // `matchFirst` will always return the 404
     return matchFirst(routes, request)!
+    // Alternatively: `return matchFirst(routes, request) ?? new Response(undefined, { status: 404 });`
   },
 };
 
