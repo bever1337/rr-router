@@ -2,7 +2,7 @@
 
 A dependency-free, semi-isomorphic, Request and Response (rr) router for JS environments with Request, Response, and URL globals as-defined by whatwg. `rr-router` exposes a small interface for synchronously matching two Request objects and a/synchronously creating a Response. As appropriate, `rr-router` uses [`dom-cache-matchall`](https://www.w3.org/TR/service-workers/#dom-cache-matchall) and [`request-matches-cached-item-algorithm`](https://www.w3.org/TR/service-workers/#request-matches-cached-item-algorithm) for reference.
 
-Inspired by this [discussion](https://github.com/kwhitley/itty-router/discussions/107) on the `itty-router` project, `rr-router` is intentionally a synchronous, request matching API.
+Inspired by this [discussion](https://github.com/kwhitley/itty-router/discussions/107) on the `itty-router` project, `rr-router` is an intentionally synchronous, request matching API.
 
 ## Examples
 
