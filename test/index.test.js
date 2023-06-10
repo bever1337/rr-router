@@ -3,15 +3,9 @@ import { expect } from "@esm-bundle/chai";
 import { requestsMatch, unwrapRequestOrFactory } from "../dist/index.js";
 
 describe("requestsMatch", () => {
-  it("Misc Assertions", () => {
-    // Request assumes current origin
-    expect(() => new Request()).to.throw();
-    expect(() => new Request("")).not.to.throw();
-    // reference equality is non-factor
-    let requestRef = new Request("");
-    expect(requestsMatch(new Request(""), new Request(""))).to.equal(true);
-    expect(requestsMatch(requestRef, requestRef)).to.equal(true);
-    requestRef = new Request("https://example.com");
+  it("Is not impacted by reference equality", () => {
+    const requestRef = new Request("https://example.com");
+    const requestRefB = new Request("https://example.com");
     expect(
       requestsMatch(
         new Request("https://example.com"),
@@ -19,8 +13,14 @@ describe("requestsMatch", () => {
       )
     ).to.equal(true);
     expect(requestsMatch(requestRef, requestRef)).to.equal(true);
-    // default method is GETA
-    expect(requestRef.method).to.equal("GET");
+    expect(
+      requestsMatch(new Request("https://example.com"), requestRef)
+    ).to.equal(true);
+    expect(requestsMatch(requestRef, requestRefB)).to.equal(true);
+  });
+
+  it("Default method is GET", () => {
+    expect(new Request("https://example.com/").method).to.equal("GET");
     expect(new Request("https://example.com").method).to.equal(
       new Request("https://example.com", { method: "GET" }).method
     );
@@ -217,29 +217,6 @@ describe("unwrapRequestOrFactory", () => {
       expect(undefined).to.equal(_options);
       return _inRequest;
     });
-  });
-
-  it("Has no type-checking or constraints on `requestQuery` or `options`", () => {
-    expect(() => unwrapRequestOrFactory()).not.to.throw();
-    expect(() => unwrapRequestOrFactory(undefined, undefined)).not.to.throw();
-    expect(() =>
-      unwrapRequestOrFactory(undefined, inRequest, undefined)
-    ).not.to.throw();
-    expect(() =>
-      unwrapRequestOrFactory(undefined, undefined, undefined)
-    ).not.to.throw();
-    expect(() => unwrapRequestOrFactory(42, inRequest)).not.to.throw();
-    expect(() => unwrapRequestOrFactory("42", "42", "42")).to.not.throw();
-  });
-
-  it("Non-FQDN have unknown URL outputs", () => {
-    expect(unwrapRequestOrFactory(undefined, "42").url).to.not.equal("42");
-    expect(
-      unwrapRequestOrFactory(undefined, "/42").url.endsWith("42")
-    ).to.equal(true);
-    expect(
-      unwrapRequestOrFactory(undefined, "https://example.com/").url
-    ).to.equal("https://example.com/");
   });
 
   it("Unexpected types fall-through and will be called", () => {

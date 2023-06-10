@@ -13,22 +13,19 @@ import { matchFirst } from "rr-router";
 // tuples are finnicky in TS, this may help
 import type { HandlerTuple } from "rr-router";
 
+// Routers are a list of tuples, each provides
+// a Request for matching, and a new Response
+// for successful matches
 const routes: HandlerTuple[] = [
   [
+    // Cloudflare Worker's do not have a location API.
+    // But, Cloudflare has already guaranteed origin routing, so
+    // use the incoming request's origin for additional matching
     (incomingRequest) =>
-      new Request(
-        '/my/resource',
-        // Cloudflare Worker's do not have a location API
-        // Cloudflare has already guaranteed origin routing,
-        // use the incoming request's origin for additional matching
-        new URL(incomingRequest.url).origin
-      ),
-    () => new Response("Hello, world")
+      new Request("/my/resource", new URL(incomingRequest.url).origin),
+    () => new Response("Hello, world"),
   ],
-  [
-    undefined, // wildcard! Always matches
-    () => new Response(undefined, { status: 404 })
-  ]
+  [undefined, () => new Response(undefined, { status: 404 })],
 ];
 
 export default {
@@ -39,11 +36,10 @@ export default {
   ): Promise<Response> {
     // because our last route is wildcard,
     // `matchFirst` will always return the 404
-    return matchFirst(routes, request)!
+    return matchFirst(routes, request)!;
     // Alternatively: `return matchFirst(routes, request) ?? new Response(undefined, { status: 404 });`
   },
 };
-
 ```
 
 ## Setup

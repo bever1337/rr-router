@@ -6,9 +6,10 @@
     "node": "^18.15.0",
     "npm": "^9.5.0"
   },
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "web-test-runner test/**/*.test.js --node-resolve --playwright --browsers chromium firefox webkit"
+    "test:web": "web-test-runner test/index.test.js test/web.test.js --node-resolve --playwright --browsers chromium firefox webkit",
+    "test:worker": "NODE_OPTIONS=--experimental-vm-modules npx jest"
   },
   "type": "module",
   "author": "Bever1337 <bever1337@posteo.net>",
@@ -17,6 +18,9 @@
     "@esm-bundle/chai": "^4.3.4-fix.0",
     "@web/test-runner": "^0.16.1",
     "@web/test-runner-playwright": "^0.10.0",
-    "typescript": "^5.0.4"
+    "jest": "^29.5.0",
+    "jest-environment-miniflare": "^2.14.0",
+    "typescript": "^5.0.4",
+    "wrangler": "^3.1.0"
   }
 }
